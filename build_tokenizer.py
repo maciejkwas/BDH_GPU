@@ -1,6 +1,11 @@
 import os
-from .tokenizer import SimpleTokenizer
-from .config_utils import load_config
+# Support both package and local runs
+try:
+    from .tokenizer import SimpleTokenizer
+    from .config_utils import load_config
+except ImportError:
+    from tokenizer import SimpleTokenizer
+    from config_utils import load_config
 
 
 def main():

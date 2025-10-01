@@ -1,0 +1,13 @@
+# Minimal dependencies for the dragon module (no freeze)
+# Install: pip install -r requirements.txt
+
+# Core
+torch>=2.6.0
+
+# Console progress bar (used in training)
+tqdm>=4.66.0
+
+# Graph preview utilities (optional but recommended)
+networkx>=3.2
+matplotlib>=3.8
+pyvis>=0.3.2

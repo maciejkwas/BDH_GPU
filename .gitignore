@@ -8,4 +8,4 @@ __init__.py
 pan_tadeusz.txt
 xxx_info.txt
 tokenizer.json
-model.pt
+ckpt_pan_tadeusz.pt

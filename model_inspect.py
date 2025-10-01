@@ -3,9 +3,15 @@ from typing import List
 
 import torch
 
-from .model import BDH_GPU
-from .tokenizer import SimpleTokenizer
-from .config_utils import load_config
+# Support both package and local runs
+try:
+    from .model import BDH_GPU
+    from .tokenizer import SimpleTokenizer
+    from .config_utils import load_config
+except ImportError:
+    from model import BDH_GPU
+    from tokenizer import SimpleTokenizer
+    from config_utils import load_config
 
 
 @torch.no_grad()
@@ -32,7 +38,7 @@ def load_model(ckpt_path: str, device: str = "cpu"):
 def neuron_salience(
     model: BDH_GPU, x: torch.Tensor, max_neurons: int = 2000
 ) -> List[float]:
-    # Prosty wskaźnik: spadek średniego logproba następnego tokena po ablacji neuronu
+    # Simple proxy: drop in mean log-prob of next token when ablating a neuron
     B, T = x.shape
     logits_base = model(x)  # (B, T, V)
     probs_base = torch.log_softmax(logits_base[:, :-1, :], dim=-1)
@@ -55,8 +61,7 @@ def neuron_salience(
 
 @torch.no_grad()
 def export_graph(model: BDH_GPU, top_k: int = 5):
-    # Bardzo uproszczony graf: dla każdego neuronu wybierz top-k tokenów z readout przez encoder
-    # Przybliżenie: wpływ neuronu i to wiersz encodera[i,:] przeniesiony na logity D@readout
+    # Very simplified graph: for each neuron pick top-k tokens via encoder->readout
     E = model.encoder  # (N, D)
     R = model.readout  # (D, V)
     W = E @ R  # (N, V)

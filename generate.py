@@ -3,9 +3,15 @@ from typing import Dict
 
 import torch
 
-from .model import BDH_GPU
-from .config_utils import load_config
-from .tokenizer import SimpleTokenizer
+# Support running as package (dragon.generate) and as local module (python -m generate)
+try:
+    from .model import BDH_GPU
+    from .config_utils import load_config
+    from .tokenizer import SimpleTokenizer
+except ImportError:  # when executed from inside dragon/ as root
+    from model import BDH_GPU
+    from config_utils import load_config
+    from tokenizer import SimpleTokenizer
 
 
 def load_checkpoint(path: str, device: str = "cpu"):

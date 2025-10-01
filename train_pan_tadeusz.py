@@ -1,5 +1,6 @@
 import os
 import random
+import math
 from dataclasses import dataclass
 
 import torch
@@ -38,9 +39,15 @@ def make_pbar(iterable, total=None, desc=None):
     return _NoopBar(iterable, total=total, desc=desc)
 
 
-from .model import BDH_GPU
-from .tokenizer import SimpleTokenizer
-from .config_utils import load_config
+# Support both package and local runs
+try:
+    from .model import BDH_GPU
+    from .tokenizer import SimpleTokenizer
+    from .config_utils import load_config
+except ImportError:
+    from model import BDH_GPU
+    from tokenizer import SimpleTokenizer
+    from config_utils import load_config
 
 
 @dataclass
@@ -77,6 +84,14 @@ def set_seed(seed: int):
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+def _optimizer_to(optimizer: torch.optim.Optimizer, device: str):
+    """Move optimizer state tensors to device (after loading state_dict)."""
+    for state in optimizer.state.values():
+        for k, v in state.items():
+            if isinstance(v, torch.Tensor):
+                state[k] = v.to(device)
 
 
 def main():
@@ -139,6 +154,33 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(tcfg.get("lr", 3e-4)))
     loss_fn = nn.CrossEntropyLoss()
 
+    # --- Optional resume ---
+    resume_cfg = tcfg.get("resume", "")  # can be falsey, true, or a path
+    resume_path: str | None = None
+    if isinstance(resume_cfg, bool):
+        if resume_cfg:
+            resume_path = tcfg.get(
+                "save", os.path.join(os.path.dirname(__file__), "ckpt.pt")
+            )
+    elif isinstance(resume_cfg, str) and resume_cfg.strip():
+        resume_path = resume_cfg
+
+    ckpt = None
+    global_step = 0
+    if resume_path and os.path.exists(resume_path):
+        ckpt = torch.load(resume_path, map_location=device)
+        try:
+            model.load_state_dict(ckpt["model"], strict=True)
+            if "optimizer" in ckpt:
+                optimizer.load_state_dict(ckpt["optimizer"])  # type: ignore
+                _optimizer_to(optimizer, device)
+            global_step = int(ckpt.get("global_step", 0))
+            print(
+                f"[resume] Loaded checkpoint from {resume_path} at step {global_step}"
+            )
+        except Exception as e:
+            print(f"[resume] Failed to load from {resume_path}: {e}")
+
     model.train()
     # Training schedule: prefer epochs if provided; otherwise, run for a fixed number of steps
     steps_cfg = int(tcfg.get("steps", 1000))
@@ -153,9 +195,49 @@ def main():
         # derive epochs to give a sensible epoch counter in UI
         epochs = max(1, (steps_cfg + steps_per_epoch - 1) // steps_per_epoch)
 
-    global_step = 0
     ema_loss = None
     ema_beta = 0.98  # smoothing for display
+
+    # --- LR Scheduler (optional) ---
+    scheduler = None
+    sched_cfg = tcfg.get("scheduler", {}) or {}
+    sched_type = str(sched_cfg.get("type", "none")).lower()
+    if sched_type == "cosine":
+        warmup = int(sched_cfg.get("warmup_steps", 0))
+        min_lr_factor = float(sched_cfg.get("min_lr_factor", 0.1))
+
+        def lr_lambda(step: int):
+            s = max(step, 0)
+            if warmup > 0 and s < warmup:
+                return max(s, 1) / float(warmup)
+            remain = max(total_steps - warmup, 1)
+            progress = min(max((s - warmup) / remain, 0.0), 1.0)
+            cosine = 0.5 * (1 + math.cos(math.pi * progress))
+            return min_lr_factor + (1.0 - min_lr_factor) * cosine
+
+        from torch.optim.lr_scheduler import LambdaLR
+
+        scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda, last_epoch=global_step - 1)
+    elif sched_type == "step":
+        step_size = int(sched_cfg.get("step_size", 1000))
+        gamma = float(sched_cfg.get("gamma", 0.5))
+        from torch.optim.lr_scheduler import StepLR
+
+        scheduler = StepLR(
+            optimizer, step_size=step_size, gamma=gamma, last_epoch=global_step - 1
+        )
+
+    # If resuming and we have a scheduler state, load it
+    if (
+        ckpt is not None
+        and scheduler is not None
+        and "scheduler" in ckpt
+        and ckpt["scheduler"]
+    ):
+        try:
+            scheduler.load_state_dict(ckpt["scheduler"])  # type: ignore
+        except Exception as e:
+            print(f"[resume] Failed to load scheduler state: {e}")
 
     for epoch in range(1, epochs + 1):
         # inner progress bar per epoch
@@ -174,6 +256,8 @@ def main():
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
 
             # stats
             loss_item = float(loss.detach().item())
@@ -212,6 +296,9 @@ def main():
     torch.save(
         {
             "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict() if scheduler is not None else None,
+            "global_step": global_step,
             "vocab_size": tk.vocab_size,
             "tokenizer_json": tk.to_json_str(),
             "config": {
