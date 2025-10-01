@@ -53,7 +53,7 @@ Plik: `config.json`
 - Zachowany styl: weight tying, residual, LayerNorm bez affine.
 - Tokenizacja: przejście z poziomu znaków na BPE (większa semantyka, krótsze sekwencje).
 
-### Podgląd grafu (bez D3)
+### Podgląd grafu
 
 Szybki podgląd `graph.json` z użyciem Pythona:
 
@@ -112,7 +112,7 @@ File: `config.json`
 - `model.D`, `H`, `N`, `L`, `dropout`
 - `generate` and `inspect` sections define checkpoint paths and run parameters.
 
-### Key features/changes (from `xxx_info.txt`)
+### Key features/changes
 
 - RoPE and causal mask implemented (the sketch had pseudocode; now fully functional).
 - Per‑head einsum multiplication: `einsum("b t d, h d n -> b h t n")` instead of implicit broadcasting for clarity and shape safety.
@@ -120,7 +120,7 @@ File: `config.json`
 - Preserved style: weight tying, residual connections, LayerNorm without affine.
 - Tokenization switched from characters to BPE for better semantics and shorter sequences.
 
-### Graph preview (no D3)
+### Graph preview
 
 Preview `graph.json` using Python tools:
 

@@ -5,7 +5,6 @@ __pycache__/
 env/
 venv/
 __init__.py
-pan_tadeusz.txt
 xxx_info.txt
 tokenizer.json
 ckpt_pan_tadeusz.pt

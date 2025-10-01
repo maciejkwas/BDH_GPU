@@ -292,7 +292,8 @@ def main():
 
     # Save
     save_path = tcfg.get("save", os.path.join(os.path.dirname(__file__), "ckpt.pt"))
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    save_dir = os.path.dirname(save_path) or "."
+    os.makedirs(save_dir, exist_ok=True)
     torch.save(
         {
             "model": model.state_dict(),
