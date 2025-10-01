@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+__init__.py
+pan_tadeusz.txt
+xxx_info.txt
+tokenizer.json
+model.pt

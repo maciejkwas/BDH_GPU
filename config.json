@@ -1,0 +1,42 @@
+{
+  "tokenizer": {
+    "files": ["pan_tadeusz.txt"],
+    "vocab_size": 2000,
+    "out": "tokenizer.json"
+  },
+  "model": {
+    "D": 256,
+    "H": 4,
+    "N": 4096,
+    "L": 4,
+    "dropout": 0.1
+  },
+  "training": {
+    "data": "pan_tadeusz.txt",
+    "seq_len": 256,
+    "batch_size": 32,
+    "steps": 1000,
+    "lr": 0.0003,
+    "device": "cuda",
+    "seed": 1337,
+    "save": "ckpt_pan_tadeusz.pt",
+    "tokenizer_json": "tokenizer.json"
+  },
+  "generate": {
+    "ckpt": "ckpt_pan_tadeusz.pt",
+    "prompt": "Litwo! Ojczyzno moja!",
+    "steps": 400,
+    "temperature": 0.9,
+    "top_k": 0,
+    "top_p": 0.9,
+    "device": "cpu"
+  },
+  "inspect": {
+    "ckpt": "ckpt_pan_tadeusz.pt",
+    "text": "Litwo! Ojczyzno moja!",
+    "seq_len": 128,
+    "device": "cpu",
+    "graph_out": "graph.json",
+    "salience_top": 50
+  }
+}
